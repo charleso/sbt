@@ -34,9 +34,21 @@ abstract class TestBuild2 {
   val MaxConfigsGen = Range.linear(1, MaxConfigs)
   val MaxBuildsGen = Range.linear(1, MaxBuilds)
   val MaxDepsGen = Range.linear(0, MaxDeps)
+  val MaxIDSizeGen = Range.linear(0, MaxIDSize)
 
-  def cGen = genConfigs(scalaIDGen, MaxDepsGen, MaxConfigsGen)
-  def tGen = genTasks(lowerIDGen, MaxDepsGen, MaxTasksGen)
+  def alphaLowerChar: Gen[Char] = Gen.char('a', 'z')
+  def alphaUpperChar: Gen[Char] = Gen.char('A', 'Z')
+  def numChar: Gen[Char] = Gen.char('0', '9')
+  def alphaNumChar: Gen[Char] =
+    Gen.frequency1(8 -> alphaLowerChar, 1 -> alphaUpperChar, 1 -> numChar)
+
+  val nonEmptyId = for {
+    c <- alphaLowerChar
+    cs <- Gen.list(alphaNumChar, MaxIDSizeGen)
+  } yield (c :: cs).mkString
+
+  def cGen = genConfigs(nonEmptyId map { _.capitalize }, MaxDepsGen, MaxConfigsGen)
+  def tGen = genTasks(kebabIdGen, MaxDepsGen, MaxTasksGen)
 
   class TestKeys(val env: Env, val scopes: Seq[Scope]) {
     override def toString = env + "\n" + scopes.mkString("Scopes:\n\t", "\n\t", "")
@@ -242,7 +254,7 @@ abstract class TestBuild2 {
   }
 
   lazy val mkEnv: Gen[Env] = {
-    val pGen = (uri: URI) => genProjects(uri)(idGen, MaxDepsGen, MaxProjectsGen, cGen)
+    val pGen = (uri: URI) => genProjects(uri)(nonEmptyId, MaxDepsGen, MaxProjectsGen, cGen)
     envGen(buildGen(uriGen, pGen), tGen)
   }
 
@@ -252,66 +264,22 @@ abstract class TestBuild2 {
       yield ScopeMask(project = p, config = c, task = t, extra = x)
   }
 
-  val allChars: Seq[Char] = ((0x0000 to 0xD7FF) ++ (0xE000 to 0xFFFD)).map(_.toChar)
+  val kebabIdGen: Gen[String] = for {
+    c <- alphaLowerChar
+    cs <- Gen.list(
+      Gen.frequency(MaxIDSize -> alphaNumChar, List(1 -> Gen.constant('-'))),
+      Range.linear(0, MaxIDSize - 2)
+    )
+    end <- alphaNumChar
+  } yield (List(c) ++ cs ++ List(end)).mkString
 
-  val letters: Seq[Char] = allChars.filter(_.isLetter)
-
-  val upperLetters: Gen[Char] = oneOf(letters.filter(_.isUpper))
-
-  val lowerLetters: Gen[Char] = oneOf(letters.filter(_.isLower))
-
-  val lettersAndDigits: Gen[Char] = oneOf(allChars.filter(_.isLetterOrDigit))
-
-  val scalaIDCharGen: Gen[Char] = {
-    val others = Gen.constant('_')
-    Gen.frequency1(19 -> lettersAndDigits, 1 -> others)
-  }
-
-  val idCharGen: Gen[Char] = {
-    val others = Gen.constant('-')
-    Gen.frequency1(19 -> scalaIDCharGen, 1 -> others)
-  }
-
-  def isIDChar(c: Char): Boolean = {
-    c.isLetterOrDigit || "-_".toSeq.contains(c)
-  }
-
-  val idGen: Gen[String] = idGen(upperLetters, idCharGen)
-
-  val lowerIDGen: Gen[String] = idGen(lowerLetters, idCharGen)
-
-  val scalaIDGen: Gen[String] = idGen(upperLetters, scalaIDCharGen)
-
-  def idGen(start: Gen[Char], end: Gen[Char]): Gen[String] = {
-    for {
-      idStart <- start
-      idEnd <- end.list(Range.linear(0, MaxIDSize - 1))
-    } yield idStart + idEnd.mkString
-  }
-
-  val schemeGen: Gen[String] = {
-    for {
-      schemeStart <- Gen.alpha
-      schemeEnd <- Gen
-        .frequency1(19 -> Gen.alphaNum, 1 -> oneOf(List('+', '-', '.')))
-        .list(Range.linear(0, 100))
-    } yield schemeStart + schemeEnd.mkString
-  }
-
-  val uriChar: Gen[Char] = {
-    Gen.frequency1(9 -> Gen.alphaNum, 1 -> oneOf(";/?:@&=+$,-_.!~*'()".toSeq))
-  }
-
-  val uriStringGen: Gen[String] = Gen.string(uriChar, Range.linear(1, 100))
-
-  val optIDGen: Gen[Option[String]] = Gen.choice1(uriStringGen.map(some.fn), Gen.constant(None))
+  val optIDGen: Gen[Option[String]] = Gen.choice1(nonEmptyId.map(some.fn), Gen.constant(None))
 
   val uriGen: Gen[URI] = {
     for {
-      sch <- schemeGen
-      ssp <- uriStringGen
+      ssp <- nonEmptyId
       frag <- optIDGen
-    } yield new URI(sch, ssp, frag.orNull)
+    } yield new URI("file", "///" + ssp + "/", frag.orNull)
   }
 
   def envGen(bGen: Gen[Build], tasks: Gen[Vector[Taskk]]): Gen[Env] =
