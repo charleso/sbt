@@ -275,9 +275,14 @@ abstract class TestBuild2 {
 
   val optIDGen: Gen[Option[String]] = Gen.choice1(nonEmptyId.map(some.fn), Gen.constant(None))
 
+  val pathGen = for {
+    c <- alphaLowerChar
+    cs <- Gen.list(alphaNumChar, Range.linear(6, MaxIDSize))
+  } yield (c :: cs).mkString
+
   val uriGen: Gen[URI] = {
     for {
-      ssp <- nonEmptyId
+      ssp <- pathGen
       frag <- optIDGen
     } yield new URI("file", "///" + ssp + "/", frag.orNull)
   }
