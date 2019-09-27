@@ -86,11 +86,10 @@ abstract class TestBuild2 {
       // task axis of Scope is set to Zero and the value of the second map is the original task axis
       val taskAxesMappings =
         for ((scope, keys) <- data.data.toIterable; key <- keys.keys)
-          yield
-            (ScopedKey(scope.copy(task = Zero), key), scope.task): (
-                ScopedKey[_],
-                ScopeAxis[AttributeKey[_]]
-            )
+          yield (ScopedKey(scope.copy(task = Zero), key), scope.task): (
+              ScopedKey[_],
+              ScopeAxis[AttributeKey[_]]
+          )
 
       val taskAxes = Relation.empty ++ taskAxesMappings
       val zero = new HashSet[ScopedKey[_]]
@@ -403,8 +402,9 @@ abstract class TestBuild2 {
     names match {
       case Vector() => sequence(acc.toList).map(_.toVector)
       case Vector(x, xs @ _*) =>
-        val next = for (depCount <- Gen.int(maxDeps); d <- pick(depCount, xs))
-          yield (x, d.toVector)
+        val next =
+          for (depCount <- Gen.int(maxDeps); d <- pick(depCount, xs))
+            yield (x, d.toVector)
         genAcyclic(maxDeps, xs.toVector, next +: acc)
     }
 

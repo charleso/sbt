@@ -142,5 +142,5 @@ object Dependencies {
 
   val scalaCacheCaffeine = "com.github.cb372" %% "scalacache-caffeine" % "0.20.0"
 
-  val hedgehog = "hedgehog" %% "hedgehog-sbt" % "db5b772b641b998194632f4874f85ac24955ee2f"
+  val hedgehog = "hedgehog" %% "hedgehog-sbt" % "af4cdf75176db970356c01592612c91ceaa5578f"
 }
