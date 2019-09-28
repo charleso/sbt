@@ -344,8 +344,6 @@ abstract class TestBuild2 {
   def genAcyclic[A, T](maxDeps: Range[Int], keyGen: Gen[T], max: Range[Int])(
       make: T => Gen[Vector[A] => A]
   ): Gen[Vector[A]] = {
-    if (keyGen == null)
-      println("XX")
     keyGen.list(max) flatMap { keys =>
       genAcyclic(maxDeps, keys.distinct.toVector)(make)
     }
