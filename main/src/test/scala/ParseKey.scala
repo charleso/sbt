@@ -8,9 +8,9 @@
 package sbt
 
 import sbt.Def.{ ScopedKey, displayFull, displayMasked }
-import sbt.internal.TestBuild2._
+import sbt.internal.TestBuild._
 import sbt.internal.util.complete.Parser
-import sbt.internal.{ Resolve, TestBuild2 }
+import sbt.internal.{ Resolve, TestBuild }
 import hedgehog.{ Result => Assert, _ }
 import hedgehog.core.{ ShrinkLimit, SuccessCount }
 import hedgehog.runner._
@@ -46,7 +46,8 @@ object ParseKey extends Properties {
   )
 
   def propertyN(name: String, result: => Property, n: Int): Test =
-    Test(name, result)
+    hedgehog.runner
+      .Test(name, result)
       .config(_.copy(testLimit = SuccessCount(n), shrinkLimit = ShrinkLimit(n * 10)))
 
   def roundtrip(skm: StructureKeyMask) = {
@@ -109,7 +110,7 @@ object ParseKey extends Properties {
       current <- oneOf(env.allProjects.unzip._1)
     } yield {
       val settings = structureSettings(scopes, env)
-      TestBuild2.structure(env, settings, current)
+      TestBuild.structure(env, settings, current)
     }
 
   def structureSettings(scopes: Seq[Scope], env: Env): Seq[Def.Setting[String]] = {
@@ -127,7 +128,7 @@ object ParseKey extends Properties {
       // NOTE: Generating this after the structure improves shrinking
       mask <- maskGen
       key <- for {
-        scope <- TestBuild2.scope(structure.env)
+        scope <- TestBuild.scope(structure.env)
         key <- oneOf(structure.allAttributeKeys.toSeq)
       } yield ScopedKey(scope, key)
       skm = StructureKeyMask(structure, key, mask)
